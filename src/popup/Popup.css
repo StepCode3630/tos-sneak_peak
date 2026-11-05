@@ -1,0 +1,28 @@
+.popup {
+    width: 400px;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+}
+
+button {
+    background: #4285f4;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin: 10px 0;
+}
+
+button:disabled {
+    background: #cccccc;
+}
+
+.error {
+    color: red;
+}
+
+.summary {
+    margin-top: 20px;
+    white-space: pre-wrap;
+}
