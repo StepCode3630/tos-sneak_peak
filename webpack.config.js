@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 import CopyWebpackPlugin from "copy-webpack-plugin";
 
-export default {
+export default (_env, argv = {}) => ({
   entry: {
     popup: "./src/popup/index.js",
     content: "./src/content/content.js",
@@ -20,7 +20,16 @@ export default {
         use: {
           loader: "babel-loader",
           options: {
-            presets: ["@babel/preset-env", "@babel/preset-react"],
+            presets: [
+              "@babel/preset-env",
+              [
+                "@babel/preset-react",
+                {
+                  runtime: "automatic",
+                  development: argv.mode === "development",
+                },
+              ],
+            ],
           },
         },
       },
@@ -52,4 +61,4 @@ export default {
   resolve: {
     extensions: [".js", ".jsx", ".mjs", ".cjs"],
   },
-};
+});
