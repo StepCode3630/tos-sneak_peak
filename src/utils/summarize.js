@@ -1,16 +1,18 @@
 const encoder = new TextEncoder();
-const sectionByteLimit = 3400;
-const summaryInstruction = "Summarize these terms of service in three points.";
+const sectionByteTarget = 8000;
+const mergeBatchSize = 8;
+const summaryInstruction =
+  "Summarize these terms of service in three concise points.";
 const notesInstruction =
-  "Summarize the important terms in this section. Preserve specific obligations, deadlines, fees, and privacy terms when present.";
+  "Summarize the important terms. Preserve specific obligations, deadlines, fees, and privacy terms when present.";
 
-async function complete(engine, instruction, text) {
+async function complete(engine, instruction, text, maxTokens) {
   const result = await engine.chat.completions.create({
     messages: [
       { role: "system", content: instruction },
       { role: "user", content: text },
     ],
-    max_tokens: 256,
+    max_tokens: maxTokens,
   });
   const summary = result.choices[0]?.message.content?.trim();
   if (!summary) {
@@ -19,40 +21,87 @@ async function complete(engine, instruction, text) {
   return summary;
 }
 
-function splitSection(text) {
-  const midpoint = Math.floor(text.length / 2);
-  const boundary = text.lastIndexOf(" ", midpoint);
-  let split = boundary > midpoint / 2 ? boundary : midpoint;
+function splitNear(text, index) {
+  const boundary = Math.max(
+    text.lastIndexOf(" ", index),
+    text.lastIndexOf("\n", index),
+  );
+  if (boundary > index / 2) return boundary;
+
   // Keep a UTF-16 surrogate pair together when there is no nearby space.
-  const next = text.charCodeAt(split);
-  if (next >= 0xdc00 && next <= 0xdfff) {
-    split--;
-  }
-  return [text.slice(0, split).trim(), text.slice(split).trim()];
+  const next = text.charCodeAt(index);
+  return next >= 0xdc00 && next <= 0xdfff ? index - 1 : index;
 }
 
-export async function summarizeTerms(
-  engine,
-  text,
-  instruction = summaryInstruction,
-) {
-  const [left, right] = splitSection(text);
-  // Leave room in the model's 4096-token window for the chat template and reply.
-  if (encoder.encode(text).length <= sectionByteLimit) {
+function* sections(text) {
+  const buffer = new Uint8Array(sectionByteTarget);
+  let remaining = text.trim();
+  while (remaining) {
+    const { read } = encoder.encodeInto(remaining, buffer);
+    const end = read === remaining.length ? read : splitNear(remaining, read);
+    yield remaining.slice(0, end).trimEnd();
+    remaining = remaining.slice(end).trimStart();
+  }
+}
+
+function splitAfterOverflow(text, error) {
+  if (error.name !== "ContextWindowSizeExceededError") throw error;
+  const split = splitNear(text, Math.floor(text.length / 2));
+  if (split <= 0) throw error;
+  return [text.slice(0, split).trimEnd(), text.slice(split).trimStart()];
+}
+
+async function addSectionNotes(engine, text, notes) {
+  try {
+    notes.push(await complete(engine, notesInstruction, text, 160));
+  } catch (error) {
+    for (const section of splitAfterOverflow(text, error)) {
+      await addSectionNotes(engine, section, notes);
+    }
+  }
+}
+
+export async function summarizeTerms(engine, text) {
+  console.log(engine, text);
+  let chunks = [...sections(text)];
+  if (chunks.length === 1) {
     try {
-      return await complete(engine, instruction, text);
+      return await complete(engine, summaryInstruction, chunks[0], 224);
     } catch (error) {
-      if (error.name !== "ContextWindowSizeExceededError" || !left || !right) {
-        throw error;
-      }
+      chunks = splitAfterOverflow(chunks[0], error);
     }
   }
 
-  const first = await summarizeTerms(engine, left, notesInstruction);
-  const second = await summarizeTerms(engine, right, notesInstruction);
+  let notes = [];
+  for (const chunk of chunks) {
+    await addSectionNotes(engine, chunk, notes);
+  }
+
+  // Merge multiple notes at once instead of generating a reply for every pair.
+  while (notes.length > mergeBatchSize) {
+    const merged = [];
+    for (let i = 0; i < notes.length; i += mergeBatchSize) {
+      const batch = notes.slice(i, i + mergeBatchSize);
+      if (batch.length === 1) {
+        merged.push(batch[0]);
+      } else {
+        merged.push(
+          await complete(
+            engine,
+            `Combine these notes. ${notesInstruction}`,
+            batch.join("\n\n"),
+            160,
+          ),
+        );
+      }
+    }
+    notes = merged;
+  }
   return complete(
     engine,
-    `Combine the section summaries. ${instruction}`,
-    `${first}\n\n${second}`,
+    `Combine these notes. ${summaryInstruction}`,
+    notes.join("\n\n"),
+    224,
+    console.log(summaryInstruction),
   );
 }

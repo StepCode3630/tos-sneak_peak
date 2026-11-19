@@ -1,15 +1,15 @@
 import React, { useState } from "react";
 import "./Popup.css";
 import { summarizeTerms } from "../utils/summarize.js";
-import { loadWebLLM } from "../utils/webllm";
+import { loadEngine } from "../utils/webllm.js";
 
 function Popup() {
   const [summary, setSummary] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [status, setStatus] = useState("");
   const [error, setError] = useState(null);
 
   const handleSummarize = async () => {
-    setIsLoading(true);
+    setStatus("Reading page…");
     setError(null);
     try {
       const response = await chrome.runtime.sendMessage({
@@ -23,24 +23,27 @@ function Popup() {
         throw new Error("No text found to summarize on this page.");
       }
 
-      const { CreateMLCEngine } = await loadWebLLM();
-      const engine = await CreateMLCEngine(
-        "Llama-3.2-3B-Instruct-q4f32_1-MLC",
-        { initProgressCallback: (progress) => console.log(progress) },
-      );
+      setStatus("Loading model…");
+      console.log("Loading model…");
+
+      const engine = await loadEngine(({ progress }) => {
+        setStatus(`Loading model… ${Math.round(progress * 100)}%`);
+      });
+      setStatus("Summarizing…");
+      console.log("Summarizing…");
       setSummary(await summarizeTerms(engine, text));
     } catch (err) {
       setError(err.message);
     } finally {
-      setIsLoading(false);
+      setStatus("");
     }
   };
 
   return (
     <div className="popup">
       <h1>CGU Summary</h1>
-      <button onClick={handleSummarize} disabled={isLoading}>
-        {isLoading ? "Loading..." : "Summary of the Terms of Service"}
+      <button onClick={handleSummarize} disabled={Boolean(status)}>
+        {status || "Summary of the Terms of Service"}
       </button>
       {error && <p className="error">{error}</p>}
       {summary && (
