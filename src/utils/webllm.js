@@ -1,11 +1,10 @@
-const model = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
+export const model = "Qwen3.5-0.8B-q4f16_1-MLC";
 let enginePromise;
 
 export function loadEngine(initProgressCallback) {
   enginePromise ??= import("@mlc-ai/web-llm")
-    .then(
-      ({ CreateMLCEngine }) => CreateMLCEngine(model, { initProgressCallback }),
-      console.log("load ok :", model),
+    .then(({ CreateMLCEngine }) =>
+      CreateMLCEngine(model, { initProgressCallback }),
     )
     .catch((error) => {
       enginePromise = undefined;

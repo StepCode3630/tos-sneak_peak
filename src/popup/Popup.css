@@ -24,5 +24,14 @@ button:disabled {
 
 .summary {
     margin-top: 20px;
+    overflow-wrap: anywhere;
     white-space: pre-wrap;
+}
+
+.summary li {
+    margin-bottom: 8px;
+}
+
+.summary summary {
+    cursor: pointer;
 }

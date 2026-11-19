@@ -7,11 +7,13 @@ export default (_env, argv = {}) => ({
     popup: "./src/popup/index.js",
     content: "./src/content/content.js",
     background: "./src/background/background.js",
+    inference: "./src/inference/offscreen.js",
   },
   output: {
     path: fileURLToPath(new URL("./dist", import.meta.url)),
     filename: "[name].js",
   },
+  devtool: false,
   module: {
     rules: [
       {
@@ -56,6 +58,10 @@ export default (_env, argv = {}) => ({
       template: "./src/popup/index.html",
       filename: "popup.html",
       chunks: ["popup"],
+    }),
+    new HtmlWebpackPlugin({
+      filename: "inference.html",
+      chunks: ["inference"],
     }),
   ],
   resolve: {
