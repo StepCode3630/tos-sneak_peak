@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "./Popup.css";
+import { summarizeTerms } from "../utils/summarize.js";
 import { loadWebLLM } from "../utils/webllm";
 
 function Popup() {
@@ -27,16 +28,7 @@ function Popup() {
         "Llama-3.2-3B-Instruct-q4f32_1-MLC",
         { initProgressCallback: (progress) => console.log(progress) },
       );
-      const result = await engine.chat.completions.create({
-        messages: [
-          {
-            role: "system",
-            content: "Summarize the user's terms of service in three points.",
-          },
-          { role: "user", content: text },
-        ],
-      });
-      setSummary(result.choices[0].message.content);
+      setSummary(await summarizeTerms(engine, text));
     } catch (err) {
       setError(err.message);
     } finally {
