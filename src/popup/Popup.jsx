@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import "./Popup.css";
 import { loadWebLLM } from "../utils/webllm";
 
@@ -14,17 +14,29 @@ function Popup() {
       const response = await chrome.runtime.sendMessage({
         action: "extractTos",
       });
-      const text = response.text;
+      if (response?.error) {
+        throw new Error(response.error);
+      }
+      const text = response?.text?.trim();
+      if (!text) {
+        throw new Error("No text found to summarize on this page.");
+      }
 
-      //  Sumarize with WebLLM
       const { CreateMLCEngine } = await loadWebLLM();
-      const model = await window.WebLLM.CreateMLCEngine(
+      const engine = await CreateMLCEngine(
         "Llama-3.2-3B-Instruct-q4f32_1-MLC",
         { initProgressCallback: (progress) => console.log(progress) },
       );
-      const prompt = `A 3-point summary of the following Terms of Service: ${text}`;
-      const result = await model.generate(prompt);
-      setSummary(result);
+      const result = await engine.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: "Summarize the user's terms of service in three points.",
+          },
+          { role: "user", content: text },
+        ],
+      });
+      setSummary(result.choices[0].message.content);
     } catch (err) {
       setError(err.message);
     } finally {

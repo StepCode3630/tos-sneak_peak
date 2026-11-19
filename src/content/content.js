@@ -1,4 +1,4 @@
-function extractTos() {
+async function extractTos() {
   // Search link to the TOS
   const tosLinks = Array.from(document.links).filter(
     (link) =>
@@ -22,9 +22,14 @@ function extractTextFromPage() {
 }
 
 // Hear messages from popup
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "extractTos") {
-    extractTos().then((text) => sendResponse({ text }));
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+  if (request.action !== "extractTos") {
+    return;
   }
-  return true; // Async
+
+  extractTos().then(
+    (text) => sendResponse({ text }),
+    (error) => sendResponse({ error: error.message }),
+  );
+  return true;
 });
