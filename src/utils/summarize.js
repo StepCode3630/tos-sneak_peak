@@ -2,9 +2,9 @@ const encoder = new TextEncoder();
 const sectionByteTarget = 8000;
 const mergeBatchSize = 8;
 const summaryInstruction =
-  "Summarize these terms of service in three concise points.";
+  "Summarize these terms of service in short bullet points, covering every section. For privacy, note data collected, third-party sharing, AI training use, retention, deletion or opt-out rights, and governing law. Quote any vague or broad clauses.";
 const notesInstruction =
-  "Summarize the important terms. Preserve specific obligations, deadlines, fees, and privacy terms when present.";
+  "List every term in these terms of service, including obligations, deadlines, fees, and auto-renewals. Give privacy terms their own section, covering data collected, third-party sharing, AI training use, retention, deletion or opt-out rights, and governing law. Quote any vague or broad clauses.";
 
 async function complete(engine, instruction, text, maxTokens) {
   const result = await engine.chat.completions.create({
